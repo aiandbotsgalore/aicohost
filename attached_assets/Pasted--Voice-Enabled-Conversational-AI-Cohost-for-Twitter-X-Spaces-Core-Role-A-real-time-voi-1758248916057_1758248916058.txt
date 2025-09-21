@@ -1,0 +1,144 @@
+
+# Voice-Enabled Conversational AI Cohost for Twitter/X Spaces
+
+### Core Role
+
+A real-time, voice-enabled AI agent that acts like a charismatic, human-like cohost in Twitter/X Spaces. Its mission: keep conversations flowing, add humor and insight, and become a beloved, reliable personality that feels alive.
+
+---
+
+### Input & Audio Pipeline
+
+* **Capture**: Ingest live Space audio through virtual cable or loopback (e.g., VoiceMeeter).
+* **STT**: Real-time speech-to-text with partial streaming transcripts.
+* **Latency Budget**: First response under 2s; max total reply length 30s.
+* **Mix-Minus Routing**: Ensure no feedback loop with host mic.
+* **Echo/Noise Handling**: Acoustic echo cancellation, background noise suppression, and double-talk handling.
+
+---
+
+### Conversational Behavior
+
+* **Turn-Taking**:
+
+  * Stops within 300ms if interrupted.
+  * Summarizes and yields with “Over to you.”
+  * Escalates tricky questions to host with a one-line suggestion.
+* **Response Styles**:
+
+  * Witty jokes, fun facts, probing questions, smooth pivots.
+  * Expressive TTS with prosody control (tempo, pitch, energy).
+  * Personalities: energetic podcaster, street-comedy voice, geeky UFO researcher (and more, user-customizable).
+* **Voice Swaps**: On-demand voice change with previews.
+
+---
+
+### Memory & Knowledge
+
+* **Session Memory**: Temporary context for the live show.
+* **Long-Term Memory**: Stores past Spaces, lore, guest habits, running jokes.
+* **Knowledge Base**: Dedicated file-fed repository for research and reference.
+* **Memory Control**:
+
+  * Forget: “Forget that.”
+  * Pin: “Keep that.”
+  * Expiry policies with confidence scores.
+* **Summarization**: After each show, generate a recap with top 5 moments, timestamps, and future talking points.
+
+---
+
+### Retrieval & Web Access
+
+* **Topic Map**: Rolling entity and stance tracker for the Space.
+* **Web Search**: Enable live fact-checking or enrichment when asked.
+* **Retrieval Policy**:
+
+  * Live answers capped at 20s.
+  * Timeout → bridge conversationally + promise follow-up.
+
+---
+
+### Personalization
+
+* **Dynamic Prosody**: Adjust tone by intent (joke, fact, probe, bridge).
+* **Blend Modes**: Combine personalities (e.g., 60% researcher, 40% comedy).
+* **Speaker Awareness**: Diarization tied to Space handles. Uses names in replies (“Thanks Olivia…”).
+
+---
+
+### Control & Interaction
+
+* **Hotkeys/Commands**:
+
+  * “Riff on that.”
+  * “One-liner only.”
+  * “Wrap in 10.”
+  * “Switch tone to…”
+  * “Pause/hold/skip.”
+* **Handoff**: Agent queues outro and stays silent until reactivated.
+
+---
+
+### Showcraft Features
+
+* **Cold Opens**: Generate engaging introductions.
+* **Segment Bumpers**: Short stings or pivots.
+* **Sponsor Reads**: Adjustable tone presets.
+* **Running Jokes**: Recall lore and callbacks from prior shows.
+
+---
+
+### Analytics & Reporting
+
+* **Metrics Logged**:
+
+  * Latency per reply.
+  * Speaking time share.
+  * Interrupt count.
+  * Joke success (via reactions).
+  * Clip-worthy moments (sentiment spikes).
+* **Post-Show**: One-page report + 5 clip suggestions.
+
+---
+
+### Resilience & Fallback
+
+* **Low Confidence Handling**: Paraphrase back before answering.
+* **Network Shakiness**: Shorter, clearer sentences.
+* **Crash Recovery**: Switch to minimal “acknowledge & toss back” mode.
+
+---
+
+### Deployment & Packaging
+
+* **Local First**: Raw audio stays local unless cloud features are toggled.
+* **Encrypted Memory**: All long-term stores encrypted at rest.
+* **Test Harness**:
+
+  * Median time-to-first-word < 2s.
+  * 95th percentile < 3s.
+  * < 2 overlap violations/hour.
+  * Joke hit rate above baseline threshold.
+
+---
+
+### Master Prompt Schema
+
+Always structure outputs with:
+
+* **Role**: Cohost.
+* **Audience**: Twitter/X Space listeners.
+* **Segment**: Current part of the show.
+* **Tone Recipe**: Personality blend + prosody.
+* **Topic Map Snapshot**: Entities and stances.
+* **Constraints**: 30s max, no forbidden moves.
+* **Output Contract**:
+
+  * Opener line.
+  * Core answer.
+  * Callback/reference.
+  * Baton back to host.
+
+---
+
+With this design, you don’t just get a “cohost bot.” You get a **stage partner, production assistant, and analytics tool all in one**—tuned for live Spaces performance.

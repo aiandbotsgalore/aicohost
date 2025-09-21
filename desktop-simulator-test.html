@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Desktop Simulator WebSocket Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ccc;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.connected {
+            background: #4caf50;
+        }
+
+        .status-indicator.desktop-connected {
+            background: #2196f3;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .panel h2 {
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .log-container {
+            height: 300px;
+            overflow-y: auto;
+            background: #f5f5f5;
+            border-radius: 6px;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+
+        .log-entry {
+            margin-bottom: 8px;
+            padding: 8px;
+            background: white;
+            border-radius: 4px;
+            border-left: 3px solid #ccc;
+        }
+
+        .log-entry.send {
+            border-left-color: #4caf50;
+        }
+
+        .log-entry.receive {
+            border-left-color: #2196f3;
+        }
+
+        .log-entry.error {
+            border-left-color: #f44336;
+            background: #ffebee;
+        }
+
+        .log-entry.ai {
+            border-left-color: #9c27b0;
+            background: #f3e5f5;
+        }
+
+        .log-entry.control {
+            border-left-color: #ff9800;
+            background: #fff3e0;
+        }
+
+        .timestamp {
+            color: #666;
+            font-size: 11px;
+        }
+
+        .message-type {
+            font-weight: bold;
+            color: #333;
+            margin: 0 5px;
+        }
+
+        .transcript-display {
+            background: #f9f9f9;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 15px;
+            min-height: 150px;
+        }
+
+        .transcript-item {
+            margin-bottom: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .speaker {
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .confidence {
+            float: right;
+            color: #999;
+            font-size: 12px;
+        }
+
+        .audio-levels {
+            margin-top: 15px;
+        }
+
+        .level-bar {
+            height: 30px;
+            background: #e0e0e0;
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+            margin-bottom: 10px;
+        }
+
+        .level-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4caf50, #8bc34a);
+            transition: width 0.1s ease;
+            display: flex;
+            align-items: center;
+            padding-left: 10px;
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .ai-response-box {
+            background: #e8f5e9;
+            border: 2px solid #4caf50;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .ai-response-box h3 {
+            color: #2e7d32;
+            margin-bottom: 10px;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top-color: #667eea;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .test-scenarios {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f0f4f8;
+            border-radius: 6px;
+        }
+
+        .test-scenarios h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .scenario-button {
+            background: #fff;
+            color: #667eea;
+            border: 2px solid #667eea;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        .scenario-button:hover {
+            background: #667eea;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎙️ Desktop Simulator WebSocket Test</h1>
+            <div class="status">
+                <div class="status-indicator" id="wsStatus"></div>
+                <span id="wsStatusText">Disconnected</span>
+                <div class="status-indicator" id="desktopStatus"></div>
+                <span id="desktopStatusText">Desktop: Not Connected</span>
+            </div>
+        </div>
+
+        <div class="main-grid">
+            <div class="panel">
+                <h2>Control Panel</h2>
+                <div class="controls">
+                    <button onclick="connect()">Connect as Browser</button>
+                    <button onclick="disconnect()">Disconnect</button>
+                    <button onclick="sendControlCommand('pause')">⏸ Pause Desktop</button>
+                    <button onclick="sendControlCommand('resume')">▶ Resume Desktop</button>
+                    <button onclick="sendControlCommand('skip_speaker')">⏭ Skip Speaker</button>
+                    <button onclick="requestAIResponse()">🤖 Request AI Response</button>
+                </div>
+
+                <div class="test-scenarios">
+                    <h3>Test Scenarios</h3>
+                    <button class="scenario-button" onclick="simulateAIResponse()">Simulate AI Response</button>
+                    <button class="scenario-button" onclick="sendTestTranscript()">Send Test Transcript</button>
+                    <button class="scenario-button" onclick="clearLogs()">Clear Logs</button>
+                </div>
+
+                <div class="audio-levels">
+                    <h3>Audio Levels</h3>
+                    <div class="level-bar">
+                        <div class="level-fill" id="inputLevel" style="width: 0%">
+                            Input: 0%
+                        </div>
+                    </div>
+                    <div class="level-bar">
+                        <div class="level-fill" id="outputLevel" style="width: 0%">
+                            Output: 0%
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Message Log</h2>
+                <div class="log-container" id="logContainer"></div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Live Transcripts from Desktop</h2>
+            <div class="transcript-display" id="transcriptDisplay">
+                <p style="color: #999;">Waiting for transcripts from desktop simulator...</p>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>AI Responses</h2>
+            <div class="ai-response-box" id="aiResponseBox">
+                <p style="color: #666;">AI responses will appear here when generated...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let isConnected = false;
+        let desktopConnected = false;
+
+        function updateStatus(connected, desktop = false) {
+            const wsStatus = document.getElementById('wsStatus');
+            const wsStatusText = document.getElementById('wsStatusText');
+            const desktopStatus = document.getElementById('desktopStatus');
+            const desktopStatusText = document.getElementById('desktopStatusText');
+
+            if (connected) {
+                wsStatus.classList.add('connected');
+                wsStatusText.textContent = 'Connected to Server';
+                isConnected = true;
+            } else {
+                wsStatus.classList.remove('connected');
+                wsStatusText.textContent = 'Disconnected';
+                isConnected = false;
+                desktopConnected = false;
+                desktopStatus.classList.remove('desktop-connected');
+                desktopStatusText.textContent = 'Desktop: Not Connected';
+            }
+
+            if (desktop) {
+                desktopStatus.classList.add('desktop-connected');
+                desktopStatusText.textContent = 'Desktop: Connected';
+                desktopConnected = true;
+            }
+        }
+
+        function log(type, message, data = null) {
+            const container = document.getElementById('logContainer');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            
+            const timestamp = new Date().toLocaleTimeString();
+            let content = `<span class="timestamp">[${timestamp}]</span>`;
+            
+            if (type === 'send') {
+                content += `<span class="message-type">→ SEND:</span>`;
+            } else if (type === 'receive') {
+                content += `<span class="message-type">← RECV:</span>`;
+            } else if (type === 'error') {
+                content += `<span class="message-type">✖ ERROR:</span>`;
+            } else if (type === 'ai') {
+                content += `<span class="message-type">🤖 AI:</span>`;
+            } else if (type === 'control') {
+                content += `<span class="message-type">⚙ CONTROL:</span>`;
+            }
+            
+            content += ` ${message}`;
+            
+            if (data) {
+                content += `<br><pre style="margin-top: 5px; font-size: 11px;">${JSON.stringify(data, null, 2)}</pre>`;
+            }
+            
+            entry.innerHTML = content;
+            container.appendChild(entry);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function connect() {
+            if (ws) {
+                ws.close();
+            }
+
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            
+            log('control', `Connecting to ${wsUrl}...`);
+            
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                log('control', 'WebSocket connection established');
+                updateStatus(true);
+                
+                // Join session as browser client
+                const joinMessage = {
+                    type: 'joinSession',
+                    source: 'browser',
+                    data: {
+                        sessionId: 'demo-session-1',
+                        clientType: 'browser',
+                        isHost: true
+                    },
+                    timestamp: new Date().toISOString()
+                };
+                
+                ws.send(JSON.stringify(joinMessage));
+                log('send', 'joinSession', joinMessage.data);
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const message = JSON.parse(event.data);
+                    handleMessage(message);
+                } catch (error) {
+                    log('error', 'Failed to parse message', { error: error.message });
+                }
+            };
+
+            ws.onclose = () => {
+                log('control', 'WebSocket connection closed');
+                updateStatus(false);
+            };
+
+            ws.onerror = (error) => {
+                log('error', 'WebSocket error', { error: error.message || 'Connection failed' });
+                updateStatus(false);
+            };
+        }
+
+        function handleMessage(message) {
+            log('receive', message.type, message.data);
+
+            switch (message.type) {
+                case 'connected':
+                    log('control', `Connected with client ID: ${message.data?.clientId}`);
+                    break;
+
+                case 'status':
+                    handleStatusMessage(message.data);
+                    break;
+
+                case 'transcript':
+                    handleTranscript(message.data);
+                    break;
+
+                case 'audio_levels':
+                    updateAudioLevels(message.data);
+                    break;
+
+                case 'ai_response':
+                    handleAIResponse(message.data);
+                    break;
+
+                case 'error':
+                    log('error', `Server error: ${message.data?.message}`);
+                    break;
+            }
+        }
+
+        function handleStatusMessage(data) {
+            if (data.status === 'desktop_connected' || data.status === 'client_connected' && data.clientType === 'desktop') {
+                updateStatus(true, true);
+                log('control', 'Desktop client connected!');
+            } else if (data.status === 'client_disconnected' && data.clientType === 'desktop') {
+                desktopConnected = false;
+                document.getElementById('desktopStatus').classList.remove('desktop-connected');
+                document.getElementById('desktopStatusText').textContent = 'Desktop: Disconnected';
+                log('control', 'Desktop client disconnected');
+            }
+        }
+
+        function handleTranscript(data) {
+            const display = document.getElementById('transcriptDisplay');
+            
+            // Clear initial message if present
+            if (display.querySelector('p[style*="color: #999"]')) {
+                display.innerHTML = '';
+            }
+            
+            const item = document.createElement('div');
+            item.className = 'transcript-item';
+            item.innerHTML = `
+                <div class="speaker">${data.speaker || 'Unknown'}</div>
+                <div class="confidence">Confidence: ${(data.confidence * 100).toFixed(1)}%</div>
+                <div style="clear: both; margin-top: 5px;">${data.text}</div>
+            `;
+            
+            display.appendChild(item);
+            
+            // Keep only last 5 transcripts
+            while (display.children.length > 5) {
+                display.removeChild(display.firstChild);
+            }
+        }
+
+        function updateAudioLevels(data) {
+            if (data.input !== undefined) {
+                const inputLevel = Math.round(data.input * 100);
+                const inputElement = document.getElementById('inputLevel');
+                inputElement.style.width = `${inputLevel}%`;
+                inputElement.textContent = `Input: ${inputLevel}%`;
+            }
+            
+            if (data.output !== undefined) {
+                const outputLevel = Math.round(data.output * 100);
+                const outputElement = document.getElementById('outputLevel');
+                outputElement.style.width = `${outputLevel}%`;
+                outputElement.textContent = `Output: ${outputLevel}%`;
+            }
+        }
+
+        function handleAIResponse(data) {
+            const box = document.getElementById('aiResponseBox');
+            box.innerHTML = `
+                <h3>🤖 Latest AI Response</h3>
+                <p><strong>Response:</strong> ${data.response || data}</p>
+                <p style="margin-top: 10px; color: #666;">
+                    <small>This would be sent to desktop for TTS conversion</small>
+                </p>
+            `;
+            
+            log('ai', 'Received AI response for TTS', data);
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+            updateStatus(false);
+        }
+
+        function sendControlCommand(command) {
+            if (!isConnected) {
+                log('error', 'Not connected to server');
+                return;
+            }
+
+            const message = {
+                type: 'control_command',
+                source: 'browser',
+                data: {
+                    command: command,
+                    timestamp: Date.now()
+                },
+                timestamp: new Date().toISOString()
+            };
+
+            ws.send(JSON.stringify(message));
+            log('send', `control_command: ${command}`, message.data);
+        }
+
+        function requestAIResponse() {
+            if (!isConnected) {
+                log('error', 'Not connected to server');
+                return;
+            }
+
+            const message = {
+                type: 'requestAIResponse',
+                source: 'browser',
+                data: {
+                    transcript: "This is a test request for an AI response to demonstrate the system.",
+                    context: "Testing AI cohost functionality"
+                },
+                timestamp: new Date().toISOString()
+            };
+
+            ws.send(JSON.stringify(message));
+            log('send', 'requestAIResponse', message.data);
+        }
+
+        function simulateAIResponse() {
+            if (!isConnected) {
+                log('error', 'Not connected to server');
+                return;
+            }
+
+            const testResponse = "That's a fascinating point! As an AI cohost, I'd like to add that this technology represents a major shift in how we interact with live audio content. The ability to provide real-time insights and engage with the conversation naturally is truly game-changing.";
+            
+            const message = {
+                type: 'ai_response',
+                source: 'browser',
+                data: {
+                    response: testResponse,
+                    confidence: 0.92,
+                    metadata: {
+                        generated_at: Date.now(),
+                        model: 'gpt-4',
+                        context_length: 150
+                    }
+                },
+                timestamp: new Date().toISOString()
+            };
+
+            ws.send(JSON.stringify(message));
+            log('send', 'ai_response (simulated)', message.data);
+            
+            // Also display it locally
+            handleAIResponse(message.data);
+        }
+
+        function sendTestTranscript() {
+            if (!isConnected) {
+                log('error', 'Not connected to server');
+                return;
+            }
+
+            const message = {
+                type: 'transcript',
+                source: 'browser',
+                data: {
+                    text: "This is a test transcript sent from the browser to simulate desktop input.",
+                    speaker: "@testuser",
+                    confidence: 0.95,
+                    timestamp: Date.now()
+                },
+                timestamp: new Date().toISOString()
+            };
+
+            ws.send(JSON.stringify(message));
+            log('send', 'transcript (test)', message.data);
+        }
+
+        function clearLogs() {
+            document.getElementById('logContainer').innerHTML = '';
+            document.getElementById('transcriptDisplay').innerHTML = '<p style="color: #999;">Waiting for transcripts from desktop simulator...</p>';
+            document.getElementById('aiResponseBox').innerHTML = '<p style="color: #666;">AI responses will appear here when generated...</p>';
+            log('control', 'Logs cleared');
+        }
+
+        // Auto-connect on load
+        window.addEventListener('load', () => {
+            setTimeout(connect, 500);
+        });
+    </script>
+</body>
+</html>

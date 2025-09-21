@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Integration Test - Browser to Desktop</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .panel {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .panel h2 {
+            margin-top: 0;
+            color: #555;
+            font-size: 18px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+        .connected {
+            background: #d4edda;
+            color: #155724;
+        }
+        .disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .test-section {
+            margin: 15px 0;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 5px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .log-area {
+            background: #f4f4f4;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 8px;
+            border-radius: 4px;
+        }
+        .test-pass {
+            background: #d4edda;
+            color: #155724;
+        }
+        .test-fail {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .test-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .audio-meter {
+            height: 20px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .audio-level {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            transition: width 0.1s ease;
+        }
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+        }
+        .metric-label {
+            font-weight: bold;
+            color: #666;
+        }
+        .metric-value {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔌 WebSocket Integration Test Suite</h1>
+    
+    <div class="status" id="connectionStatus">Disconnected</div>
+    
+    <div class="container">
+        <div class="panel">
+            <h2>📤 Test Controls</h2>
+            
+            <div class="test-section">
+                <h3>1️⃣ Connection Test</h3>
+                <button onclick="testConnection()">Test Connection</button>
+                <div id="connectionResult" class="test-result test-pending">⏳ Not tested</div>
+            </div>
+            
+            <div class="test-section">
+                <h3>2️⃣ Transcript Test</h3>
+                <button onclick="testTranscriptFlow()">Send Test Transcript</button>
+                <div id="transcriptResult" class="test-result test-pending">⏳ Not tested</div>
+            </div>
+            
+            <div class="test-section">
+                <h3>3️⃣ Control Commands</h3>
+                <button onclick="sendControlCommand('pause')">Pause</button>
+                <button onclick="sendControlCommand('resume')">Resume</button>
+                <button onclick="sendControlCommand('skip_speaker')">Skip Speaker</button>
+                <div id="controlResult" class="test-result test-pending">⏳ Not tested</div>
+            </div>
+            
+            <div class="test-section">
+                <h3>4️⃣ AI Response Test</h3>
+                <button onclick="testAIResponse()">Request AI Response</button>
+                <div id="aiResult" class="test-result test-pending">⏳ Not tested</div>
+            </div>
+            
+            <div class="test-section">
+                <h3>5️⃣ Full Integration Test</h3>
+                <button onclick="runFullTest()">Run Complete Test Suite</button>
+                <div id="fullTestResult" class="test-result test-pending">⏳ Not tested</div>
+            </div>
+        </div>
+        
+        <div class="panel">
+            <h2>📊 Real-time Metrics</h2>
+            
+            <div class="metric">
+                <span class="metric-label">Connected Clients:</span>
+                <span class="metric-value" id="clientCount">0</span>
+            </div>
+            
+            <div class="metric">
+                <span class="metric-label">Messages Sent:</span>
+                <span class="metric-value" id="messagesSent">0</span>
+            </div>
+            
+            <div class="metric">
+                <span class="metric-label">Messages Received:</span>
+                <span class="metric-value" id="messagesReceived">0</span>
+            </div>
+            
+            <div class="metric">
+                <span class="metric-label">Last Transcript:</span>
+                <span class="metric-value" id="lastTranscript">None</span>
+            </div>
+            
+            <div class="metric">
+                <span class="metric-label">Audio Level:</span>
+                <div class="audio-meter" style="flex: 1; margin-left: 10px;">
+                    <div class="audio-level" id="audioLevel"></div>
+                </div>
+            </div>
+            
+            <h3>Message Log</h3>
+            <div class="log-area" id="messageLog"></div>
+        </div>
+    </div>
+    
+    <div class="panel" style="margin-top: 20px;">
+        <h2>📋 Test Results Summary</h2>
+        <div id="testSummary" style="white-space: pre-wrap; font-family: monospace;"></div>
+    </div>
+
+    <script>
+        let ws = null;
+        let isConnected = false;
+        let messagesSent = 0;
+        let messagesReceived = 0;
+        let testResults = {};
+        
+        function log(message, type = 'info') {
+            const logArea = document.getElementById('messageLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'send' ? '→' : type === 'recv' ? '←' : '•';
+            logArea.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+        
+        function updateStatus(connected) {
+            const status = document.getElementById('connectionStatus');
+            if (connected) {
+                status.textContent = '✅ Connected to WebSocket Server';
+                status.className = 'status connected';
+            } else {
+                status.textContent = '❌ Disconnected';
+                status.className = 'status disconnected';
+            }
+            isConnected = connected;
+        }
+        
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.hostname}:5000/ws`;
+            
+            log(`Connecting to ${wsUrl}...`);
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                updateStatus(true);
+                log('WebSocket connected!');
+                
+                // Send browser connect message
+                sendMessage('joinSession', {
+                    sessionId: 'demo-session-1',
+                    clientType: 'browser',
+                    isHost: true
+                });
+                
+                testResults.connection = true;
+                updateTestResult('connectionResult', true, '✅ Connection established');
+            };
+            
+            ws.onmessage = (event) => {
+                messagesReceived++;
+                document.getElementById('messagesReceived').textContent = messagesReceived;
+                
+                try {
+                    const message = JSON.parse(event.data);
+                    log(`${message.type}: ${JSON.stringify(message.data || {})}`, 'recv');
+                    handleMessage(message);
+                } catch (e) {
+                    log(`Raw message: ${event.data}`, 'recv');
+                }
+            };
+            
+            ws.onclose = () => {
+                updateStatus(false);
+                log('WebSocket disconnected');
+            };
+            
+            ws.onerror = (error) => {
+                log(`Error: ${error.message || 'Connection failed'}`);
+                testResults.connection = false;
+                updateTestResult('connectionResult', false, '❌ Connection failed');
+            };
+        }
+        
+        function sendMessage(type, data) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const message = {
+                    type,
+                    source: 'browser',
+                    data,
+                    timestamp: new Date().toISOString()
+                };
+                ws.send(JSON.stringify(message));
+                messagesSent++;
+                document.getElementById('messagesSent').textContent = messagesSent;
+                log(`${type}: ${JSON.stringify(data)}`, 'send');
+                return true;
+            }
+            log('Cannot send - not connected!');
+            return false;
+        }
+        
+        function handleMessage(message) {
+            switch (message.type) {
+                case 'connected':
+                    document.getElementById('clientCount').textContent = 
+                        message.data?.totalClients || '1';
+                    break;
+                    
+                case 'transcript':
+                    const transcript = message.data?.text || message.data;
+                    document.getElementById('lastTranscript').textContent = 
+                        transcript.substring(0, 50) + (transcript.length > 50 ? '...' : '');
+                    testResults.transcript = true;
+                    updateTestResult('transcriptResult', true, '✅ Transcript received');
+                    break;
+                    
+                case 'audio_levels':
+                    const level = message.data?.input || message.data?.levels?.[0] || 0;
+                    document.getElementById('audioLevel').style.width = 
+                        `${Math.min(level * 100, 100)}%`;
+                    break;
+                    
+                case 'ai_response':
+                    testResults.aiResponse = true;
+                    updateTestResult('aiResult', true, 
+                        `✅ AI Response: "${(message.data?.response || message.data).substring(0, 50)}..."`);
+                    break;
+                    
+                case 'status':
+                    if (message.data?.status === 'control_received') {
+                        testResults.control = true;
+                        updateTestResult('controlResult', true, 
+                            `✅ Control command acknowledged: ${message.data.command}`);
+                    }
+                    break;
+            }
+        }
+        
+        function updateTestResult(elementId, success, message) {
+            const element = document.getElementById(elementId);
+            element.className = `test-result ${success ? 'test-pass' : 'test-fail'}`;
+            element.textContent = message;
+        }
+        
+        // Test functions
+        function testConnection() {
+            if (!isConnected) {
+                connectWebSocket();
+            } else {
+                updateTestResult('connectionResult', true, '✅ Already connected');
+            }
+        }
+        
+        function testTranscriptFlow() {
+            if (sendMessage('transcript', {
+                text: 'Test transcript from browser interface',
+                confidence: 0.95,
+                speaker: 'Browser Test'
+            })) {
+                log('Waiting for transcript echo...');
+            }
+        }
+        
+        function sendControlCommand(command) {
+            if (sendMessage('control_command', {
+                command: command,
+                timestamp: new Date().toISOString()
+            })) {
+                log(`Sent control command: ${command}`);
+            }
+        }
+        
+        function testAIResponse() {
+            if (sendMessage('requestAIResponse', {
+                context: 'Test context for AI response',
+                prompt: 'Generate a test response'
+            })) {
+                log('Requested AI response...');
+            }
+        }
+        
+        async function runFullTest() {
+            updateTestResult('fullTestResult', false, '⏳ Running tests...');
+            
+            // Reset results
+            testResults = {};
+            
+            // Test 1: Connection
+            if (!isConnected) {
+                testConnection();
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+            
+            // Test 2: Transcript
+            testTranscriptFlow();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Test 3: Control Commands
+            sendControlCommand('pause');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Test 4: AI Response
+            testAIResponse();
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Generate summary
+            const totalTests = 4;
+            const passedTests = Object.values(testResults).filter(r => r).length;
+            const success = passedTests === totalTests;
+            
+            const summary = `
+=== TEST RESULTS SUMMARY ===
+Date: ${new Date().toLocaleString()}
+Session ID: demo-session-1
+
+Tests Executed: ${totalTests}
+Tests Passed: ${passedTests}
+Tests Failed: ${totalTests - passedTests}
+Success Rate: ${(passedTests/totalTests * 100).toFixed(0)}%
+
+Individual Results:
+✓ Connection Test: ${testResults.connection ? 'PASS' : 'FAIL'}
+✓ Transcript Flow: ${testResults.transcript ? 'PASS' : 'FAIL'}
+✓ Control Commands: ${testResults.control ? 'PASS' : 'FAIL'}
+✓ AI Response: ${testResults.aiResponse ? 'PASS' : 'FAIL'}
+
+Status: ${success ? '✅ ALL TESTS PASSED' : '⚠️ SOME TESTS FAILED'}
+===========================`;
+            
+            document.getElementById('testSummary').textContent = summary;
+            updateTestResult('fullTestResult', success, 
+                success ? '✅ All tests passed!' : `⚠️ ${passedTests}/${totalTests} tests passed`);
+        }
+        
+        // Auto-connect on load
+        window.addEventListener('load', () => {
+            connectWebSocket();
+        });
+    </script>
+</body>
+</html>

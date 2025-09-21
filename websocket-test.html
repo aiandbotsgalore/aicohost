@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Protocol Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #00ff00;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .client-box {
+            border: 2px solid #00ff00;
+            padding: 20px;
+            background: #0a0a0a;
+        }
+        .log {
+            height: 300px;
+            overflow-y: auto;
+            background: #000;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #333;
+        }
+        .log-entry {
+            margin: 2px 0;
+            font-size: 12px;
+        }
+        .sent { color: #00aaff; }
+        .received { color: #ffaa00; }
+        .error { color: #ff0000; }
+        button {
+            background: #00ff00;
+            color: #000;
+            border: none;
+            padding: 5px 10px;
+            margin: 5px;
+            cursor: pointer;
+            font-family: monospace;
+        }
+        button:hover {
+            background: #00cc00;
+        }
+        input {
+            background: #000;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            padding: 5px;
+            margin: 5px;
+            width: 200px;
+        }
+        .status {
+            padding: 5px;
+            margin: 5px 0;
+        }
+        .connected { color: #00ff00; }
+        .disconnected { color: #ff0000; }
+    </style>
+</head>
+<body>
+    <h1>WebSocket Protocol Test - AI Cohost System</h1>
+    
+    <div class="container">
+        <!-- Browser Client -->
+        <div class="client-box">
+            <h2>Browser Client (Control Interface)</h2>
+            <div class="status" id="browser-status">Status: Disconnected</div>
+            
+            <div>
+                <button onclick="connectBrowser()">Connect Browser</button>
+                <button onclick="disconnectBrowser()">Disconnect</button>
+            </div>
+            
+            <div>
+                <input type="text" id="session-id" value="demo-session-1" placeholder="Session ID">
+            </div>
+            
+            <h3>Send Control Commands:</h3>
+            <button onclick="sendControlCommand('start_recording')">Start Recording</button>
+            <button onclick="sendControlCommand('stop_recording')">Stop Recording</button>
+            <button onclick="sendControlCommand('pause')">Pause AI</button>
+            <button onclick="sendControlCommand('skip')">Skip Turn</button>
+            
+            <h3>Send AI Response:</h3>
+            <input type="text" id="ai-response" placeholder="AI response text">
+            <button onclick="sendAIResponse()">Send AI Response</button>
+            
+            <h3>Log:</h3>
+            <div class="log" id="browser-log"></div>
+        </div>
+        
+        <!-- Desktop Client -->
+        <div class="client-box">
+            <h2>Desktop Client (Audio Processor)</h2>
+            <div class="status" id="desktop-status">Status: Disconnected</div>
+            
+            <div>
+                <button onclick="connectDesktop()">Connect Desktop</button>
+                <button onclick="disconnectDesktop()">Disconnect</button>
+            </div>
+            
+            <h3>Send Transcript:</h3>
+            <input type="text" id="transcript" placeholder="Transcript text">
+            <button onclick="sendTranscript()">Send Transcript</button>
+            
+            <h3>Send Audio Levels:</h3>
+            <button onclick="sendAudioLevels()">Send Audio Levels</button>
+            
+            <h3>Send Status:</h3>
+            <button onclick="sendDesktopStatus('recording')">Recording</button>
+            <button onclick="sendDesktopStatus('paused')">Paused</button>
+            <button onclick="sendDesktopStatus('processing')">Processing</button>
+            
+            <h3>Log:</h3>
+            <div class="log" id="desktop-log"></div>
+        </div>
+    </div>
+    
+    <script>
+        let browserWs = null;
+        let desktopWs = null;
+        const sessionId = 'demo-session-1';
+        
+        // Browser client functions
+        function connectBrowser() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            
+            browserWs = new WebSocket(wsUrl);
+            
+            browserWs.onopen = () => {
+                updateStatus('browser', true);
+                logMessage('browser', 'Connected to server', 'sent');
+                
+                // Join session as browser
+                const joinMsg = {
+                    type: 'joinSession',
+                    sessionId: document.getElementById('session-id').value,
+                    clientType: 'browser',
+                    isHost: true
+                };
+                browserWs.send(JSON.stringify(joinMsg));
+                logMessage('browser', `Sent: ${JSON.stringify(joinMsg)}`, 'sent');
+            };
+            
+            browserWs.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                logMessage('browser', `Received: ${JSON.stringify(msg)}`, 'received');
+            };
+            
+            browserWs.onerror = (error) => {
+                logMessage('browser', `Error: ${error}`, 'error');
+            };
+            
+            browserWs.onclose = () => {
+                updateStatus('browser', false);
+                logMessage('browser', 'Disconnected from server', 'error');
+            };
+        }
+        
+        function disconnectBrowser() {
+            if (browserWs) {
+                browserWs.close();
+                browserWs = null;
+            }
+        }
+        
+        // Desktop client functions
+        function connectDesktop() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            
+            desktopWs = new WebSocket(wsUrl);
+            
+            desktopWs.onopen = () => {
+                updateStatus('desktop', true);
+                logMessage('desktop', 'Connected to server', 'sent');
+                
+                // Connect as desktop client
+                const connectMsg = {
+                    type: 'desktop_connect',
+                    source: 'desktop',
+                    data: { sessionId: document.getElementById('session-id').value },
+                    timestamp: new Date().toISOString()
+                };
+                desktopWs.send(JSON.stringify(connectMsg));
+                logMessage('desktop', `Sent: ${JSON.stringify(connectMsg)}`, 'sent');
+            };
+            
+            desktopWs.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                logMessage('desktop', `Received: ${JSON.stringify(msg)}`, 'received');
+            };
+            
+            desktopWs.onerror = (error) => {
+                logMessage('desktop', `Error: ${error}`, 'error');
+            };
+            
+            desktopWs.onclose = () => {
+                updateStatus('desktop', false);
+                logMessage('desktop', 'Disconnected from server', 'error');
+            };
+        }
+        
+        function disconnectDesktop() {
+            if (desktopWs) {
+                desktopWs.close();
+                desktopWs = null;
+            }
+        }
+        
+        // Browser sending functions
+        function sendControlCommand(command) {
+            if (!browserWs || browserWs.readyState !== WebSocket.OPEN) {
+                alert('Browser client not connected');
+                return;
+            }
+            
+            const msg = {
+                type: 'control_command',
+                source: 'browser',
+                data: { command: command, params: {} },
+                timestamp: new Date().toISOString()
+            };
+            
+            browserWs.send(JSON.stringify(msg));
+            logMessage('browser', `Sent: ${JSON.stringify(msg)}`, 'sent');
+        }
+        
+        function sendAIResponse() {
+            if (!browserWs || browserWs.readyState !== WebSocket.OPEN) {
+                alert('Browser client not connected');
+                return;
+            }
+            
+            const response = document.getElementById('ai-response').value;
+            if (!response) {
+                alert('Enter an AI response text');
+                return;
+            }
+            
+            const msg = {
+                type: 'ai_response',
+                source: 'browser',
+                data: { response: response },
+                timestamp: new Date().toISOString()
+            };
+            
+            browserWs.send(JSON.stringify(msg));
+            logMessage('browser', `Sent: ${JSON.stringify(msg)}`, 'sent');
+        }
+        
+        // Desktop sending functions
+        function sendTranscript() {
+            if (!desktopWs || desktopWs.readyState !== WebSocket.OPEN) {
+                alert('Desktop client not connected');
+                return;
+            }
+            
+            const text = document.getElementById('transcript').value;
+            if (!text) {
+                alert('Enter transcript text');
+                return;
+            }
+            
+            const msg = {
+                type: 'transcript',
+                source: 'desktop',
+                data: { text: text, confidence: 0.95 },
+                timestamp: new Date().toISOString()
+            };
+            
+            desktopWs.send(JSON.stringify(msg));
+            logMessage('desktop', `Sent: ${JSON.stringify(msg)}`, 'sent');
+        }
+        
+        function sendAudioLevels() {
+            if (!desktopWs || desktopWs.readyState !== WebSocket.OPEN) {
+                alert('Desktop client not connected');
+                return;
+            }
+            
+            const levels = Array.from({length: 10}, () => Math.random() * -60);
+            const msg = {
+                type: 'audio_levels',
+                source: 'desktop',
+                data: { levels: levels },
+                timestamp: new Date().toISOString()
+            };
+            
+            desktopWs.send(JSON.stringify(msg));
+            logMessage('desktop', `Sent: ${JSON.stringify(msg)}`, 'sent');
+        }
+        
+        function sendDesktopStatus(status) {
+            if (!desktopWs || desktopWs.readyState !== WebSocket.OPEN) {
+                alert('Desktop client not connected');
+                return;
+            }
+            
+            const msg = {
+                type: 'status',
+                source: 'desktop',
+                data: { status: status },
+                timestamp: new Date().toISOString()
+            };
+            
+            desktopWs.send(JSON.stringify(msg));
+            logMessage('desktop', `Sent: ${JSON.stringify(msg)}`, 'sent');
+        }
+        
+        // Utility functions
+        function updateStatus(client, connected) {
+            const statusEl = document.getElementById(`${client}-status`);
+            statusEl.textContent = `Status: ${connected ? 'Connected' : 'Disconnected'}`;
+            statusEl.className = `status ${connected ? 'connected' : 'disconnected'}`;
+        }
+        
+        function logMessage(client, message, type) {
+            const logEl = document.getElementById(`${client}-log`);
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logEl.appendChild(entry);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+    </script>
+</body>
+</html>

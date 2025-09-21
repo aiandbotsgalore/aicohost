@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Command Test</title>
+</head>
+<body>
+    <h1>WebSocket Command Test</h1>
+    <button onclick="testPause()">Test Pause Command</button>
+    <button onclick="testPersonality()">Test Personality Update</button>
+    <button onclick="testRiff()">Test Riff Command</button>
+    <div id="output"></div>
+
+    <script>
+        const ws = new WebSocket(`ws://${window.location.hostname}:5000/ws`);
+        const output = document.getElementById('output');
+        
+        ws.onopen = () => {
+            output.innerHTML += '<p>WebSocket Connected!</p>';
+            // Join session
+            ws.send(JSON.stringify({
+                type: 'joinSession',
+                sessionId: 'demo-session-1',
+                clientType: 'browser',
+                isHost: true
+            }));
+        };
+        
+        ws.onmessage = (event) => {
+            const msg = JSON.parse(event.data);
+            output.innerHTML += `<p>Received: ${msg.type} - ${JSON.stringify(msg.data)}</p>`;
+        };
+        
+        function testPause() {
+            const msg = {
+                type: 'control_command',
+                source: 'browser',
+                data: { command: 'pause', key: 'p' },
+                timestamp: new Date().toISOString()
+            };
+            ws.send(JSON.stringify(msg));
+            output.innerHTML += '<p>Sent pause command</p>';
+        }
+        
+        function testPersonality() {
+            const msg = {
+                type: 'updatePersonality',
+                personality: { comedyLevel: 90 }
+            };
+            ws.send(JSON.stringify(msg));
+            output.innerHTML += '<p>Sent personality update</p>';
+        }
+        
+        function testRiff() {
+            const msg = {
+                type: 'control_command',
+                source: 'browser',
+                data: { command: 'hotkey', key: 'r', command: 'riff' },
+                timestamp: new Date().toISOString()
+            };
+            ws.send(JSON.stringify(msg));
+            output.innerHTML += '<p>Sent riff command</p>';
+        }
+    </script>
+</body>
+</html>
