@@ -1,7 +1,11 @@
 import OpenAI from "openai";
 
 // Using GPT-4 for compatibility since GPT-5 may not be available
-const apiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_ENV_VAR;
+function getApiKey() {
+  return process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_ENV_VAR;
+}
+
+const apiKey = getApiKey();
 if (!apiKey || apiKey === "sk-default") {
   console.error("OpenAI API key not found or invalid:", apiKey ? `${apiKey.substring(0, 10)}...` : "undefined");
 } else {
@@ -53,10 +57,19 @@ export async function generateAIResponse(
   context: ConversationContext
 ): Promise<{ response: string; confidence: number }> {
   try {
+    // Create fresh OpenAI client with current environment key
+    const currentApiKey = process.env.OPENAI_API_KEY;
+    if (!currentApiKey) {
+      throw new Error("OpenAI API key not found in environment");
+    }
+    
+    const freshOpenAI = new OpenAI({ apiKey: currentApiKey });
+    console.log("Using API key for request:", currentApiKey.substring(0, 20) + "...");
+    
     const systemPrompt = createSystemPrompt(context);
     const userPrompt = createUserPrompt(recentTranscript, context);
 
-    const response = await openai.chat.completions.create({
+    const response = await freshOpenAI.chat.completions.create({
       model: "gpt-4o",
       messages: [
         { role: "system", content: systemPrompt },
